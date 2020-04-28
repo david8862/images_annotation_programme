@@ -28,12 +28,12 @@
     background: url('ic_delete_white_20px.png');
     cursor: pointer;
     height: 22px;
-    width: 22px;
+    width: 14px;
 }
 .delete-area {
     position: absolute;
     cursor: pointer;
-    padding: 5px;
+    padding: 0px;
 }
 
 /* F. TOST*/

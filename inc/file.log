@@ -1,7 +1,6 @@
-INFO - getNewImage.php
-xml_filepath ../data/VOC2007/Annotations/000009.xml
+INFO - getImageAnnotations.php
+xml_filepath ../data/VOC2007/Annotations/000001.xml
 Parse XML
-Annotations a:4:{i:0;a:5:{s:1:"x";s:2:"69";s:1:"y";s:3:"172";s:5:"width";i:201;s:6:"height";i:158;s:3:"tag";s:5:"horse";}i:1;a:5:{s:1:"x";s:3:"150";s:1:"y";s:3:"141";s:5:"width";i:79;s:6:"height";i:143;s:3:"tag";s:6:"person";}i:2;a:5:{s:1:"x";s:3:"285";s:1:"y";s:3:"201";s:5:"width";i:42;s:6:"height";i:130;s:3:"tag";s:6:"person";}i:3;a:5:{s:1:"x";s:3:"258";s:1:"y";s:3:"198";s:5:"width";i:39;s:6:"height";i:131;s:3:"tag";s:6:"person";}}
-Annotations a:4:{i:0;a:5:{s:1:"x";s:2:"69";s:1:"y";s:3:"172";s:5:"width";i:201;s:6:"height";i:158;s:3:"tag";s:5:"horse";}i:1;a:5:{s:1:"x";s:3:"150";s:1:"y";s:3:"141";s:5:"width";i:79;s:6:"height";i:143;s:3:"tag";s:6:"person";}i:2;a:5:{s:1:"x";s:3:"285";s:1:"y";s:3:"201";s:5:"width";i:42;s:6:"height";i:130;s:3:"tag";s:6:"person";}i:3;a:5:{s:1:"x";s:3:"258";s:1:"y";s:3:"198";s:5:"width";i:39;s:6:"height";i:131;s:3:"tag";s:6:"person";}}
-URL image = data//VOC2007/JPEGImages/000009.jpg
-Annotations a:4:{s:3:"url";s:35:"data//VOC2007/JPEGImages/000009.jpg";s:2:"id";s:10:"000009.jpg";s:6:"folder";s:18:"VOC2007/JPEGImages";s:11:"annotations";a:4:{i:0;a:5:{s:1:"x";s:2:"69";s:1:"y";s:3:"172";s:5:"width";i:201;s:6:"height";i:158;s:3:"tag";s:5:"horse";}i:1;a:5:{s:1:"x";s:3:"150";s:1:"y";s:3:"141";s:5:"width";i:79;s:6:"height";i:143;s:3:"tag";s:6:"person";}i:2;a:5:{s:1:"x";s:3:"285";s:1:"y";s:3:"201";s:5:"width";i:42;s:6:"height";i:130;s:3:"tag";s:6:"person";}i:3;a:5:{s:1:"x";s:3:"258";s:1:"y";s:3:"198";s:5:"width";i:39;s:6:"height";i:131;s:3:"tag";s:6:"person";}}}
+Annotations a:2:{i:0;a:7:{s:1:"x";i:48;s:1:"y";i:240;s:5:"width";i:147;s:6:"height";i:131;s:3:"tag";s:3:"dog";s:9:"difficult";s:1:"0";s:7:"groupof";s:1:"0";}i:1;a:7:{s:1:"x";i:8;s:1:"y";i:12;s:5:"width";i:344;s:6:"height";i:486;s:3:"tag";s:6:"person";s:9:"difficult";s:1:"0";s:7:"groupof";s:1:"0";}}
+Annotations a:2:{i:0;a:7:{s:1:"x";i:48;s:1:"y";i:240;s:5:"width";i:147;s:6:"height";i:131;s:3:"tag";s:3:"dog";s:9:"difficult";s:1:"0";s:7:"groupof";s:1:"0";}i:1;a:7:{s:1:"x";i:8;s:1:"y";i:12;s:5:"width";i:344;s:6:"height";i:486;s:3:"tag";s:6:"person";s:9:"difficult";s:1:"0";s:7:"groupof";s:1:"0";}}
+URL image = data//VOC2007/JPEGImages/000001.jpg

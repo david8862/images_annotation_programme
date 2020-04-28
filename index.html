@@ -18,8 +18,21 @@
     <script src="js/jquery-3.2.1.js" type="text/javascript"></script>
     <script src="js/jquery.selectareas.js" type="text/javascript"></script>
     <script src="autocomplete/jquery.easy-autocomplete.js" type="text/javascript"></script>
-
+    <style>
+        .selected{font-weight:bold; background: #ff99cc; color:#fff;}
+    </style>
 <script>
+$(window).bind('beforeunload',function(e){
+    e.preventDefault();
+    // e.returnValue = '';
+    console.log(JSON.stringify(json_annotations));
+    tmpTagList = [];
+    validateTagsAndRegions(tmpTagList);
+    console.log(JSON.stringify(tmpTagList));
+    if(json_annotations != "" && JSON.stringify(json_annotations) != JSON.stringify(tmpTagList))
+        return false;
+})
+
 var selection_xy = [];
 var tag_error_raised = false;
 var new_zone_created = false;
@@ -29,8 +42,9 @@ MESSAGE_EMPTY_TAG = "You need to enter a tag here"
 RED_COLOR = "#C70039"
 GREEN_COLOR = "#80A60E"
 var changeStatusMessage = false;
-
+var bypassTagCheck = false;
 var json_annotations = [];
+// var image_ids = [];
 var list_of_tags = [];
 var current_visible_area_id = -1;
 
@@ -54,13 +68,109 @@ var image_info = {
     height: 0,
     annotations: [],
 };
-
+var list_of_images = {};
+var selectedIndex = 0;
 var lastLoadedWidth  = 0;
 var lastLoadedHeight = 0;
 var firstWidth = 0;
 
+function selectImageCallback(item, ind)
+{
+    $(item).siblings('li').removeClass('selected');
+    $(item).addClass('selected');
+    $('#image_id').text(list_of_images[ind].id);
+     $('#image_to_process').selectAreas('reset');
+    // json_annotations = list_of_images[ind].annotations;??
+   
+    image_info.url = list_of_images[ind].url;
+    image_info.id = list_of_images[ind].id;
+    image_info.year = list_of_images[ind].year;
+    image_info.folder = list_of_images[ind].folder;
+    selectedIndex = ind;
+    setImageCookie(list_of_images[ind].id);
+    $.ajax({
+        type: 'POST',
+        url: 'inc/getImageAnnotations.php',
+        data: { img: image_info.id, flr: image_info.folder, yr:image_info.year},
+        dataType: "json",
+        success: function(resData)
+        {
+            json_annotations = resData;
+            $('#image_to_process').attr("src", image_info.url + '?' + Math.random());
+        }
+    });
+}
+
+function selectImage(item, ind)
+{
+    tmpTagList = [];
+    if(validateTagsAndRegions(tmpTagList))
+    {
+        if(JSON.stringify(json_annotations) != JSON.stringify(tmpTagList)){
+            var toLoadNextImg = confirm("Some modifications on this image have not been saved. Are you sure to leave?")
+            if (toLoadNextImg==true)
+            {
+                selectImageCallback(item, ind);
+            }
+        }
+        else{
+            selectImageCallback(item, ind);
+        }
+    }
+}
+
+function focusPrevOrNextAnnotation(isNext = true)
+{
+    var areas = $('#image_to_process').selectAreas('areas');
+
+    if(isNext)
+    {
+        current_visible_area_id++;
+        if (current_visible_area_id >= areas.length)
+        {
+            current_visible_area_id = 0;
+        }
+    }
+    else
+    {
+        current_visible_area_id--;
+        if (current_visible_area_id < 0)
+        {
+            current_visible_area_id = areas.length - 1;
+        }
+    }
+
+    for (var i = 0; i < areas.length; i++)
+    {
+        if (i == current_visible_area_id)
+        {
+            $('#image_to_process').selectAreas('setVisibility',  areas[i].id, 1);
+        }
+        else
+        {
+            $('#image_to_process').selectAreas('setVisibility',  areas[i].id, 0);
+        }
+    }
+}
+
 $(document).ready(function ()
 {
+    $(window).resize(
+        function()
+        {
+            var divWidth = Math.round(document.body.clientWidth*0.3);
+            $('#imageIdChoices').css("width", divWidth+"px");
+        }
+    );
+    $("input[name='difficult']").click(function()
+    {
+        bypassTagCheck=true;
+    });
+    $("input[name='GroupOf']").click(function()
+    {
+        bypassTagCheck=true;
+    });
+    // console.log(list_of_images);
     $('#image_to_process').on("load", function()
     {
         console.log("INFO: " + "on('load', function() ");
@@ -108,7 +218,20 @@ $(document).ready(function ()
 
         $("#image_to_process").attr({width:image_screen_width+"px"});
         $("#image_to_process").attr({height:image_screen_height+"px"});
-
+        $("#image_to_process").parent().css({
+                width: image_screen_width,
+                height: image_screen_height
+            });
+        $("#image_to_process").siblings(".select-areas-overlay").css({
+                width: image_screen_width,
+                height: image_screen_height,
+                position : "absolute"
+            });
+        $("#image_to_process").siblings(":last").css({
+                width: image_screen_width,
+                height: image_screen_height,
+                position : "absolute"
+            });
         //col1_width = ($(window).width() - $('#image_to_process').get(0).width - 350) /2;
         //col2_width = $('#image_to_process').get(0).width;
         //col3_width = ($(window).width() - $('#image_to_process').get(0).width - 350) /2;
@@ -144,17 +267,26 @@ $(document).ready(function ()
 
         // Loop on tag info
         json_annotations.forEach(function(element) {
+            var region_tag = element.tag;
+            if(element.difficult=="0")
+                region_tag+=",easy";
+            else
+                region_tag+=",hard";
+            if(element.groupof=="0")
+                region_tag+=",nogroup";
+            else
+                region_tag+=",group";
             var areaOptions = {
                 x: (element.x * ratio_original_to_screen_x),
                 y: (element.y * ratio_original_to_screen_y),
                 width: (element.width * ratio_original_to_screen_x),
                 height: (element.height * ratio_original_to_screen_y),
-                tag:element.tag, };
+                tag:region_tag };
 
             // We have to convert x, y and size to image in the HTML page
             $('#image_to_process').selectAreas('add', areaOptions);
         });
-
+       
         // Get list of areas
         var areas = $('#image_to_process').selectAreas('areas');
         if (areas.length > 0)
@@ -227,11 +359,11 @@ $(document).ready(function ()
         var region_tag_length = $("#tag_input").val().length;
 
         // Set back the area tag if stored
-        var stored_tag = area.tag
+        var stored_tag = area.tag.split(',')[0]
         if (stored_tag.length >= 3)
         {
-            setValidInputTag(stored_tag);
-            region_tag_length = area.tag.length;
+            setValidInputTag(area.tag);
+            region_tag_length = stored_tag.length;
         }
         else
         {
@@ -294,8 +426,28 @@ $(document).ready(function ()
     });
     $('#validate_button').click(function(e) {
         // Sets a random selection
-        validateTagsAndRegions();
+        saveAnnotation();
     });
+
+    $('#delete_button').click(function(e) {
+        var toDeleteImage = confirm("You are deleting the image and its annotations. Are you sure to continue?")
+        if (toDeleteImage == true)
+        {
+            $.ajax({
+            type: 'POST',
+            url: 'inc/delete.php',
+            data: {img: image_info.id}, 
+            dataType: "json",
+            success: function(resData)
+            {
+                var newInd = selectedIndex+1;
+                setImageCookie(list_of_images[newInd].id)//刷新cookie
+                window.location.reload();
+            }
+            });
+        }
+    });
+
     $('#all_annotations_button').click(function(e) {
         // Show all annotations
         current_visible_area_id = -1;
@@ -319,36 +471,7 @@ $(document).ready(function ()
     });
 
     $('#one_annotation_button').click(function(e) {
-
-        // Hide annotations
-        var areas = $('#image_to_process').selectAreas('areas');
-        current_visible_area_id++;
-
-        /*if (areas.length==0)
-        {
-            $('#one_annotation_button').button( "option", "label", "");
-        }*/
-
-        if (current_visible_area_id+1 > areas.length)
-        {
-            current_visible_area_id = 0;
-        }
-
-        for (var i = 0; i < areas.length; i++)
-        {
-            // alert("i " + i);
-            // alert("current_visible_area_id " + current_visible_area_id);
-
-            if (i == current_visible_area_id)
-            {
-                $('#image_to_process').selectAreas('setVisibility',  areas[i].id, 1);
-                // $('#one_annotation_button').button( "option", "label", "areas[i].tag");
-            }
-            else
-            {
-                $('#image_to_process').selectAreas('setVisibility',  areas[i].id, 0);
-            }
-        }
+        focusPrevOrNextAnnotation(true);
     });
 
     $("#tag_input").focus(function() {
@@ -358,10 +481,13 @@ $(document).ready(function ()
             $("#tag_input").val("");
             $('#tag_input').css({'color':'#000'});
         }
+        bypassTagCheck=false;
     });
 
     $("#tag_input").focusout(function() {
-        isTagInAuthorizedList()
+        var tagStautus = isTagInAuthorizedList();
+        if(tagStautus)
+            bypassTagCheck=true;
     });
 
     $("#tag_input").on('keyup', function (e) {
@@ -379,10 +505,47 @@ $(document).ready(function ()
     init_finished = true;
 })
 
+//监听键盘事件(快捷键)
+$(document).keydown(function(event){
+    if(event.keyCode == 65)
+    {
+        selectImage($("#imgids").children(".selected").prev(), selectedIndex - 1);
+        $("#imageIdChoices").scrollTop(22 * selectedIndex);
+    }
+    if (event.keyCode == 68)
+    {
+        selectImage($("#imgids").children(".selected").next(), selectedIndex + 1);
+        $("#imageIdChoices").scrollTop(22 * selectedIndex);
+　　 }
+    if(event.keyCode == 66)
+    {
+        focusPrevOrNextAnnotation(false);
+    }
+    if(event.keyCode == 70)
+    {
+        focusPrevOrNextAnnotation(true);
+    }
+    if(81 == event.keyCode && event.ctrlKey)
+    {
+        saveAnnotation();
+    }
+});
+
 function setValidInputTag(_tag)
 {
-    $("#tag_input").val(_tag);
+    tagArray = _tag.split(',');
+    $("#tag_input").val(tagArray[0]);
+    if(tagArray[1]=='easy')
+        $("#easy").prop('checked', true);
+    else
+        $("#difficult").prop('checked', true);
+    if(tagArray[2]=='nogroup')
+        $("#notingroup").prop('checked', true);
+    else
+        $("#ingroup").prop('checked', true);
     isTagInAuthorizedList();
+    // if(tagStatus)
+    //     bypassTagCheck=true;
 }
 
 function setNotYetValidInputTag(_tag)
@@ -394,9 +557,9 @@ function setNotYetValidInputTag(_tag)
 function isTagInAuthorizedList()
 {
     var region_tag = $("#tag_input").val();
-
+    
     list_of_tags = $("#tag_input").getAllItemData();
-
+    //console.log(list_of_tags);
     if (list_of_tags.indexOf(region_tag) >= 0)
     {
         $('#tag_input').css({'color':'#14AEE1'});
@@ -450,11 +613,12 @@ function onAreaChanged(event, id, areas)
     var region_tag_length = $("#tag_input").val().length;
 
     // Set back the area tag if stored
-    var stored_tag = area.tag
+    var stored_tag = area.tag.split(',')[0]
     if (stored_tag.length >= 3)
     {
-        setValidInputTag(stored_tag);
-        region_tag_length = area.tag.length;
+        setValidInputTag(area.tag);
+        region_tag_length = stored_tag.length;
+        bypassTagCheck=true;
     }
     else
     {
@@ -556,8 +720,16 @@ function setTagAndRegion()
     //}
 
     var region_tag = $("#tag_input").val();
+    if($("input[name='difficult']:checked").val()=="0")
+        region_tag+=",easy";
+    else
+        region_tag+=",hard";
+    if($("input[name='GroupOf']:checked").val()=="0")
+        region_tag+=",nogroup";
+    else
+        region_tag+=",group";
 
-    if (region_tag.length < 3)
+    if ($("#tag_input").val() < 3)
     {
         // Display an alert
         tag_error_raised = true
@@ -567,7 +739,7 @@ function setTagAndRegion()
         return false;
     }
 
-    if (!isTagInAuthorizedList())
+    if (!bypassTagCheck&&!isTagInAuthorizedList())
     {
         setStatusAndColor("This tag is not in the predefined list.", RED_COLOR);
         return false;
@@ -576,46 +748,51 @@ function setTagAndRegion()
     // Just change the tag, get area, id, ...
     $('#image_to_process').selectAreas('setTag', current_area.id, region_tag);
     setStatus("Tag has been set.");
-
+    // if($("#tag_input").val().trim() == 'black')
+    // {
+    //     $('#image_to_process').selectAreas('setVisibility', current_area.id, 0);
+    // }
     // Selection another box
     new_zone_created = true	;
 
     // Init text
     $("#tag_input").focusout();
-
+    bypassTagCheck = false;
     return true;
 }
 
-function validateTagsAndRegions()
+function validateTagsAndRegions(tmpTagList)
 {
     // Process the list of tags
     var areas = $('#image_to_process').selectAreas('areas');
 
-    if (areas.length == 0)
-    {
-        setStatusAndColor("Create at least one region with a tag before submitting.", RED_COLOR);
-        return false;
-    }
-
     index_tag = 0;
     ratioX = lastLoadedWidth/$('#image_to_process').width();
     ratioY = lastLoadedHeight/$('#image_to_process').height();
-    tmp_annotations = [];
 
     var error_occurs = false;
     $.each(areas, function (id, area) {
-        var tag_info = {tag:"",x:0,y:0,width:0,height:0};
-        tag_info.tag = area.tag;
-        tag_info.x = area.x * ratioX;
-        tag_info.y = area.y * ratioY;
-        tag_info.width = area.width * ratioX;
-        tag_info.height = area.height * ratioY;
+        var tag_info = {x:0,y:0,width:0,height:0, tag:"",difficult:0, groupof:0};
+        tagSerial = area.tag.split(",");
+        tag_info.tag = tagSerial[0];
+        tag_info.x = Math.round(area.x * ratioX);
+        tag_info.y = Math.round(area.y * ratioY);
+        tag_info.width = Math.round(area.width * ratioX);
+        tag_info.height = Math.round(area.height * ratioY);
+        if(tagSerial[1] == "easy")
+            tag_info.difficult = "0";
+        else
+            tag_info.difficult = "1";
+        if(tagSerial[2] == "nogroup")
+            tag_info.groupof = "0";
+        else
+            tag_info.groupof = "1";
         // To be checked
-        tmp_annotations.push(tag_info);
+        tmpTagList.push(tag_info);
         // image_info.annotations[index_tag] = tag_info;
         index_tag = index_tag + 1;
 
-        if (area.tag.length<3)
+        if (tagSerial[0].length<3)
         {
             if (areas.length==1)
             {
@@ -630,11 +807,19 @@ function validateTagsAndRegions()
         }
 
     });
-
     if (error_occurs) return false;
+    return true;
+}
 
-    // image_info.annotations = JSON.stringify(tmp_annotations);
-    image_info.annotations = tmp_annotations;
+function saveAnnotation()
+{
+    tmpTagList=[];
+    if(!validateTagsAndRegions(tmpTagList))
+        return false;
+
+    //image_info.annotations = JSON.stringify(tmp_annotations);
+    //list_of_images[selectedIndex].annotations = tmp_annotations;
+    image_info.annotations = tmpTagList;
     //alert(image_info.annotations);
     console.log("INFO: annotations : " + image_info.annotations);
     console.log("INFO: annotations : " + JSON.stringify(image_info));
@@ -649,28 +834,29 @@ function validateTagsAndRegions()
         {
             // Reload a page but with a message
             setStatusAndColor("Data has been sent.", GREEN_COLOR);
-            loadImage(); // replace the image
-            getOrCreateUserId(); // Count also points later on
+            //loadImage(); // replace the image
+            //getOrCreateUserId(); // Count also points later on
 
             // Message to user
             $("#message").text(data.message);
-            $('#image_to_process').selectAreas('reset');
-            image_info = {
-                url: "",
-                year: "",
-                folder: "",
-                id:"",
-                width: 0,
-                height: 0,
-                annotations: [],
-            };
-
+            // $('#image_to_process').selectAreas('reset');
+            // image_info = {
+            //     url: "",
+            //     year: "",
+            //     folder: "",
+            //     id:"",
+            //     width: 0,
+            //     height: 0,
+            //     annotations: [],
+            // };
+            json_annotations = tmpTagList;
         },
         error : function(data, status, error)
         {
             setStatusAndColor("Unable to send data, please retry or check your connection.", RED_COLOR)
         }
     });
+    return true;
 }
 
 function getCookie(cname)
@@ -688,6 +874,24 @@ function getCookie(cname)
         }
     }
     return "";
+}
+
+function deleteImageCookie()
+{
+    var exp = new Date();
+    exp.setTime(exp.getTime() - 1);
+    var cval=getCookie("image");
+    if(cval!=null)
+        document.cookie = "image="+cval+";expires="+exp.toUTCString()+ ";path=/";
+}
+
+function setImageCookie(imageName)
+{
+    // Create a cookie to identify image index
+    var date = new Date();
+    date.setTime(date.getTime() + (10*24*60*60*1000)); // ms
+    expires = "; expires=" + date.toUTCString();
+    document.cookie = "image="+ imageName + expires + ";path=/";
 }
 
 function getOrCreateUserId()
@@ -725,24 +929,25 @@ function getRandomToken()
     return hex;
 }
 
-function loadImage()
+function loadImage(imageIndex = 0)
 {
     var dataString = JSON.stringify(user_id);
     console.log("INFO: " + "loadImage() from php");
     $.ajax({
         type: 'POST',
         url: 'inc/getNewImage.php',
-        data: {user_id: dataString},
+        data: {user_id: dataString, imageIndex: imageIndex},
         dataType: "json",
-        success: function(data)
+        success: function(resData)
         {
-            var dataJson = JSON.parse(data);
+            var dataJson = resData;
             image_info.url = dataJson.url;
-            image_info.id = dataJson.id;
             image_info.year = dataJson.year;
             image_info.folder = dataJson.folder;
+            image_info.id = dataJson.id;
             image_id   = dataJson.id;
             json_annotations = dataJson.annotations;
+            // image_ids = Object.values(dataJson.imageids);
             $('#image_id').text(image_id);
             $('#image_to_process').attr("src", image_info.url);
 
@@ -753,11 +958,85 @@ function loadImage()
                         onDeleted:onAreaDeleted,
             });*/
 
-        },
-        dataType: 'html'
+        }
     });
 }
 
+function sortById(x, y)
+{
+    idxAb = x.id.substring(0,x.id.indexOf("."));
+    idyAb = y.id.substring(0,y.id.indexOf("."));
+    return parseInt(idxAb) - parseInt(idyAb);
+}
+
+function getAllInfo()
+{
+    imageIndex = 0;
+    image = "";
+    imageName = getCookie("image");
+    if (imageName)
+    {
+        image = imageName;
+    }
+ 
+    //var dataString = JSON.stringify(user_id);
+    console.log("INFO: " + "getAllInfo() from php");
+
+    $.ajax({
+        type: 'POST',
+        url: 'inc/getAllInfo.php',
+        //data: {user_id: dataString},
+        dataType: "json",
+        success: function(resD)
+        {
+            list_of_images = resD.sort(sortById);
+            flag=false;
+            if(image)
+            {
+                list_of_images.forEach(function(element,index)
+                {
+                    if(element.id==image)
+                    {
+                        imageIndex = index;
+                        selectedIndex = index;
+                        flag=true;
+                        return false;
+                    }
+                });
+            }
+            if(!flag)
+                setImageCookie(list_of_images[imageIndex].id);
+            image_info.url = list_of_images[imageIndex].url;
+            image_info.year = list_of_images[imageIndex].year;
+            image_info.folder = list_of_images[imageIndex].folder;
+            image_info.id = list_of_images[imageIndex].id;
+            image_id = list_of_images[imageIndex].id;
+            // json_annotations = list_of_images[imageIndex].annotations;
+            $('#image_id').text(image_id);
+            
+            var imageidlist = "<ul id=\"imgids\">";
+            list_of_images.forEach(function(element, ind) {
+                if(ind == imageIndex)
+                    imageidlist += "<li class=\"selected\" onclick=\"selectImage(this,"+imageIndex+")\">" + image_id + "</li>";
+                else
+                    imageidlist += "<li onclick=\"selectImage(this," + ind + ")\">" + element.id + "</li>";
+            });
+            $("#imageIdChoices").html(imageidlist + '</ul>');
+            $("#imageIdChoices").scrollTop(22*imageIndex);
+            $.ajax({
+                type: 'POST',
+                url: 'inc/getImageAnnotations.php',
+                data: { img: image_info.id, flr: image_info.folder, yr:image_info.year},
+                dataType: "json",
+                success: function(resData)
+                {
+                    json_annotations = resData;
+                    $('#image_to_process').attr("src", image_info.url);
+                }
+            });
+        }
+    });
+}
 </script>
 </head>
 
@@ -767,7 +1046,8 @@ function loadImage()
     <table style="width:100%;background-color:#fff">
         <tr>
             <td id="col1" style="background-color:#fff">&nbsp;</td>
-            <td id="col2"style="white-space:nowrap;background-color:#fff;width:60%;max-width:800px">
+            <!-- <td id="col2"style="white-space:nowrap;background-color:#fff;width:60%;max-width:800px"> -->
+            <td id="col2"style="white-space:nowrap;background-color:#fff;width:800px;height:600px">
                 <img id="image_to_process" src="./images/wait.gif">
             </td>
             <td id="col3" style="white-space: nowrap;padding-left:30px;width:350px;max-width:400px;background-color:#fff">
@@ -799,7 +1079,18 @@ function loadImage()
                 <div style="padding-top: 4px" class="ae_small_90">
                     <span id="status"  id="image_id">> Select a region from the picture.</span>
                 </div>
-
+                <div>Detection Difficulty&nbsp;&nbsp; 
+                    <input type="radio" id="difficult" name="difficult" value="1" />
+                    <label>difficult</label>
+                    <input type="radio" id="easy" name="difficult" value="0" checked="checked"/>
+                    <label>not difficult</label>
+                </div>
+                <div>Group_Of&nbsp;&nbsp; 
+                    <input type="radio" id="ingroup" name="GroupOf" value="1" />
+                    <label>yes</label>
+                    <input type="radio" id="notingroup" name="GroupOf" value="0" checked="checked"/>
+                    <label>no</label>
+                </div>
                 <div style="padding-top:12px;text-align: right;">
                     <button id="add_region" class="tooltip ae_button_level_1">Set Tag
                         <span style="padding-left:4px;">
@@ -807,12 +1098,12 @@ function loadImage()
                         <span class="tooltiptext light_green">Add highlighted region with associated tag.</span></button>
                 </div>
 
-                <div style="padding-top:24px;box-sizing: border-box;width=100%;text-align: right;">
+                <!-- <div style="padding-top:24px;box-sizing: border-box;width=100%;text-align: right;">
                     <button id="validate_button" class="tooltip ae_button_level_1">Validate & Get next Image
                         <span class="tooltiptext light_green">Validate all the tags added to this image and go to the next image.</span>
                         <span style="padding-left:4px;">
                             <img src="./images/ic_navigate_next_black_48dp.png" style="vertical-align: bottom;" alt="" width="18" height="18"></span></button>
-                </div>
+                </div> -->
 
                 <div style="display: inline-block; width:100%; background-color:#fff;padding-top: 6px; padding-bottom: 3px">
                     <div style="float:left; width:50% ;padding-top: 12px; padding-bottom: 3px">
@@ -825,7 +1116,7 @@ function loadImage()
                     </div>
                 </div>
 
-                <div style="width:100%; background-color:#fff;padding-top: 3px; <div style="padding-top:12px;box-sizing: border-box;width=100%;text-align: right;">
+                <div style="width:100%; background-color:#fff;padding-top:12px;box-sizing: border-box;text-align: right;">
                         <button id="all_annotations_button" class="tooltip ae_button_level_3">All
                             <span class="tooltiptext light_violet">Display all Annotations</span>
                             <span style="padding-left:4px;">
@@ -842,15 +1133,31 @@ function loadImage()
                                 <img src="./images/ic_navigate_next_black_48dp.png" style="vertical-align: bottom;" alt="" width="18" height="18"></span></button>
 
                     </div>
-                    <div style="padding-top:96px;box-sizing: border-box;width=100%;text-align: right;">
+                    <div style="OVERFLOW-Y: scroll; OVERFLOW-X:hidden; width: 450px; height: 270px" id="imageIdChoices">
+                    </div>
+                    <div style="padding-top:24px;box-sizing: border-box;text-align: right;">
+                        <button id="validate_button" class="tooltip ae_button_level_1">Save Annotations
+                            <span class="tooltiptext light_green">Validate all the tags added to this image and go to the next image.</span>
+                            <span style="padding-left:4px;">
+                                <img src="./images/ic_navigate_next_black_48dp.png" style="vertical-align: bottom;" alt="" width="18" height="18">
+                            </span>
+                        </button>
+                        <button id="delete_button" class="tooltip ae_button_level_1">Delete Image
+                            <span class="tooltiptext light_green">Delete the image and its annotations.</span>
+                            <span style="padding-left:4px;">
+                                <img src="./images/ic_navigate_next_black_48dp.png" style="vertical-align: bottom;" alt="" width="18" height="18">
+                            </span>
+                        </button>
+                    </div>
+                    <!-- <div style="padding-top:96px;box-sizing: border-box;width=100%;text-align: right;">
                         <button onclick="window.location.reload()" class="tooltip ae_button_level_2">Ignore & Get next image
                             <span class="tooltiptext light_blue">Ignore this image and associated tags and go to the next image.</span>
                             <span style="padding-left:4px;">
                                 <img src="./images/ic_replay_black_48dp.png" style="vertical-align: bottom;" alt="" width="18" height="18"></span></button>
-                    </div>
+                    </div> -->
 
-                    <div style="padding-top:24px;box-sizing: border-box;width=100%;text-align: right;">
-                        <button onclick="window.location.href='thank_you.html'" class="tooltip ae_button_level_2">Leave
+                    <div style="padding-top:24px;box-sizing: border-box;text-align: right;">
+                        <button onclick="deleteImageCookie();window.location.href='thank_you.html'" class="tooltip ae_button_level_2">Leave
                             <span class="tooltiptext light_blue">Leave this page, cancel all tags of this image. Validated tags will be kept.</span>
                             <span style="padding-left:4px;">
                                 <img src="./images/ic_exit_to_app_black_48dp.png" style="vertical-align: bottom;" alt="" width="18" height="18"></span></button>
@@ -859,6 +1166,15 @@ function loadImage()
                     <div style="padding-top: 12px" class="ae_small_80">
                         <span id="message" class="blue_color_text" style="float:right;"></span>
                     </div>
+                    <div style="padding-top: 9px" >
+                        <ul id="tipsForShortcut" style="float:right;">Tips for keyboard shortcuts:
+                            <li >Previous image: "a"</li>
+                            <li >Next image: "d"</li>
+                            <li >Previous annotation: "b"</li>
+                            <li >Next annotation: "f"</li>
+                            <li >Save annotations: "ctrl+q"</li>
+                        </ul>
+                    </div>
             </td>
             <td id="col4" style="background-color:#fff">&nbsp;</td>
         </tr>
@@ -866,7 +1182,8 @@ function loadImage()
 </div>
 </body>
 <script>
-   getOrCreateUserId();
-   loadImage();
+   //getOrCreateUserId();
+   getAllInfo();
+//    loadImage();
 </script>
 </html>

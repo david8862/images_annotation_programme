@@ -10,7 +10,7 @@
 html{box-sizing:border-box;}*,*:before,*:after{box-sizing:inherit}
 
 body{margin:0;}
-html, body{height:100%;font-size:15px;line-height:1.5}
+html, body{font-size:15px;line-height:1.5}
 
 .my_center {
    width: 300px;
@@ -50,7 +50,7 @@ a:active,a:hover{outline-width:0}abbr[title]{border-bottom:none;text-decoration:
 .ae_small_90
 {
     font-family: 'Raleway', sans-serif;
-    font-size: 80%;
+    font-size: 90%;
 }
 
 .ae_xsmall

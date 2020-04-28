@@ -1,5 +1,9 @@
 <?php
-
+$testGD = get_extension_funcs("gd"); // Grab function list 
+if (!$testGD){
+    echo "GD not even installed.";
+    exit;
+}
 include 'xmlVocAnnotations.php';
 include 'configuration.php';
 
@@ -26,22 +30,44 @@ $imageSize = [  "width"  => $width ,
 $xml = new xmlVocAnnotations($folder, $id, $imageSize);
 
 file_put_contents($file, "xmlVocAnnotations created\n",FILE_APPEND | LOCK_EX);
-
+$im = imagecreatefromjpeg($IMAGES_DIR. DIRECTORY_SEPARATOR .$id);
+$im_tmp = imagecreatefromjpeg($IMAGES_DIR. DIRECTORY_SEPARATOR .$id);
+$blackPatch = imagecolorallocate($im, 0, 0, 0);
+$blackPatchAdded = false;
 foreach ($annotations as &$annotation)
 {
-    $xml->addBndBox($annotation->x,
-        $annotation->y,
-        $annotation->width,
-        $annotation->height,
-        $annotation->tag);
+    if($annotation->tag == 'black')
+    {
+        imagefilledrectangle($im, $annotation->x, $annotation->y, $annotation->x+$annotation->width-1, $annotation->y+$annotation->height-1, $blackPatch);
+        $blackPatchAdded = true;
+    }
+    else
+    {
+        $xml->addBndBox($annotation->x,
+            $annotation->y,
+            $annotation->width,
+            $annotation->height,
+            $annotation->tag,
+            $annotation->difficult,
+            $annotation->groupof);
+    }
 }
-
+if($blackPatchAdded)
+{
+    imagejpeg($im_tmp, $IMAGES_BACKUP_DIR. DIRECTORY_SEPARATOR .$id);
+    imagejpeg($im, $IMAGES_DIR. DIRECTORY_SEPARATOR .$id);
+}
 file_put_contents($file, "Before saving\n",FILE_APPEND | LOCK_EX);
 // Write xml to file
 $xml->save($ANNOTATIONS_DIR);
 
 $response_array['status']  = 'success'; /* match error string in jquery if/else */
-$response_array['message'] = $id.".xml has been created.";   /* add custom message */
+if($blackPatchAdded){
+    $response_array['message'] = $id. " and " .str_replace(strrchr($id, "."),"",$id).".xml have been created.";
+}
+else{
+    $response_array['message'] = str_replace(strrchr($id, "."),"",$id).".xml has been created.";
+}
 
 file_put_contents($file, "End of file validationTagsAndRegions" ,FILE_APPEND | LOCK_EX);
 file_put_contents($file, " " ,FILE_APPEND | LOCK_EX);

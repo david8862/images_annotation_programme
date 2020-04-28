@@ -35,13 +35,11 @@ class xmlVocAnnotations
         // Check conditions
         if ( ($this->_filename == null) ||
             ($this->_foldername == null) ||
-            ($this->_imgSize == null) ||
-            (count($this->_boxlist) <= 0) )
-        {
+            ($this->_imgSize == null) )
             return null;
-        }
-
         $top = $this->_domDoc->createElement('annotation');
+        if((count($this->_boxlist) <= 0))
+            $top->setAttribute('verified','true');
         $topNode = $this->_domDoc->appendChild($top);
 
         $folder = $this->_domDoc->createElement('folder',$this->_foldername);
@@ -79,10 +77,12 @@ class xmlVocAnnotations
     }
 
     # Tag is $name
-    public function addBndBox($xmin, $ymin, $width, $height, $name)
+    public function addBndBox($xmin, $ymin, $width, $height, $name, $difficult, $groupof)
     {
         $bndbox = ['xmin'=>$xmin, 'ymin'=>$ymin, 'xmax'=>($xmin+$width), 'ymax'=>($ymin+$height)];
         $bndbox['name'] = $name;
+        $bndbox['difficult'] = $difficult;
+        $bndbox['groupof'] = $groupof;
         array_push($this->_boxlist, $bndbox);
     }
 
@@ -102,7 +102,10 @@ class xmlVocAnnotations
             $truncated = $this->_domDoc->createElement('truncated',  "0");
             $object_itemNode->appendChild($truncated);
 
-            $difficult = $this->_domDoc->createElement('difficult',  "0");
+            $group_of = $this->_domDoc->createElement('group_of',  $box["groupof"]);
+            $object_itemNode->appendChild($group_of);
+
+            $difficult = $this->_domDoc->createElement('difficult',  $box["difficult"]);
             $object_itemNode->appendChild($difficult);
 
             $bndbox = $this->_domDoc->createElement('bndbox');
@@ -120,6 +123,10 @@ class xmlVocAnnotations
             $ymax = $this->_domDoc->createElement('ymax',  $box["ymax"]);
             $bndboxNode->appendChild($ymax);
         }
+        $object_item = $this->_domDoc->createElement('lighting', 'daylight');
+        $top->appendChild($object_item);
+        $object_item = $this->_domDoc->createElement('surface', 'ceramic tile');
+        $top->appendChild($object_item);
     }
 
     public function save($targetDir)
@@ -138,7 +145,7 @@ class xmlVocAnnotations
 
         file_put_contents($file, "Save annotations to ". $fullPath ."\n",FILE_APPEND | LOCK_EX);
         file_put_contents($file, "Xml file: ". $filename ."\n",FILE_APPEND | LOCK_EX);
-
+        // $this->_domDoc->removeChild($this->_domDoc->getElementsByTagName("?xml")->item(0));
         $this->_domDoc->save($fullPath);
     }
 } // End of class

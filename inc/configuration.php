@@ -6,6 +6,7 @@ $DATASET_ROOT_WEB_DIR = "data/";
 # Image & annotation path for internal PHP use
 $IMAGES_DIR  = "../data/VOC2007/JPEGImages";
 $ANNOTATIONS_DIR = "../data/VOC2007/Annotations";
+$IMAGES_BACKUP_DIR  = "../data/VOC2007/backup";
 
 # Collection name
 #$COLLECTION_NAME = "collection_01";

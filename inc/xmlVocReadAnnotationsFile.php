@@ -38,10 +38,12 @@ class xmlVocReadAnnotationsFile
         return $this->error_loading;
     }
 
-    public function addShape($tag, $xmin, $ymin, $xmax, $ymax)
+    public function addShape($tag, $xmin, $ymin, $xmax, $ymax, $difficult, $groupof)
     {
-        $bndbox = ['x'=>$xmin, 'y'=>$ymin, 'width'=>($xmax-$xmin), 'height'=>($ymax-$ymin)];
+        $bndbox = ['x'=>(int)$xmin, 'y'=>(int)$ymin, 'width'=>($xmax-$xmin), 'height'=>($ymax-$ymin)];
         $bndbox['tag'] = $tag;
+        $bndbox['difficult'] = $difficult;
+        $bndbox['groupof'] = $groupof;
         array_push($this->_boxlist, $bndbox);
     }
 
@@ -75,6 +77,13 @@ class xmlVocReadAnnotationsFile
                 $ymin = $object->getElementsByTagName("ymin")[0];
                 $xmax = $object->getElementsByTagName("xmax")[0];
                 $ymax = $object->getElementsByTagName("ymax")[0];
+                $difficult = $object->getElementsByTagName("difficult")[0];
+                $groupof = $object->getElementsByTagName("group_of")[0];
+
+                if(!is_object($groupof))
+                {
+                    $groupof = $object->getElementsByTagName("difficult")[0];
+                }
 
                 /*echo "name ". $tag->nodeValue . PHP_EOL;
                 echo "xmin ". $xmin->nodeValue . PHP_EOL;
@@ -83,7 +92,7 @@ class xmlVocReadAnnotationsFile
                 echo "ymax ". $ymax->nodeValue . PHP_EOL;*/
 
                 $this->addShape($tag->nodeValue, $xmin->nodeValue, $ymin->nodeValue,
-                    $xmax->nodeValue, $ymax->nodeValue);
+                    $xmax->nodeValue, $ymax->nodeValue, $difficult->nodeValue, $groupof->nodeValue);
 
                 /*echo PHP_EOL;*/
             }
